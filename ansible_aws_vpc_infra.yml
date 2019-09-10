@@ -192,34 +192,3 @@
         ec2_id: "{{ ec2_result.tagged_instances[0].id }}"
 
 
-    - name: "Creating AMI for bastion instance"
-      ignore_errors: yes
-      ec2_ami:
-        state: present
-        region: "{{ region }}"
-        instance_id: "{{ ec2_id }}"
-        wait: yes
-        name: "bastion_ami_{{ ansible_date_time.date }}"
-        no_reboot: yes
-
-    - ec2_ami_facts:
-        region: "{{ region }}"
-        filters:
-          name: "bastion_ami_{{ ansible_date_time.date }}"
-      register: bastion_ami_status
-
-    - name: "Copy AMI for bastion instance to another region"
-      ec2_ami_copy:
-        name: new_bastion_AMI
-        source_region: "{{ region }}"
-        region: "us-west-1"
-        source_image_id: "{{ bastion_ami_status.images[0].image_id }}"
-        wait: yes
-        tags:
-          Name: "bastion_ami_{{ ansible_date_time.date }}"
-
-
-
-
-
-
