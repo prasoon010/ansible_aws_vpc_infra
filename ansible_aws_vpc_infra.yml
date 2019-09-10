@@ -165,6 +165,60 @@
       set_fact:
         DBserver_sg_id: "{{ DBserver_sg.group_id }}"
 
+    - name: "Creating Internet gateway"
+      ec2_vpc_igw:
+        vpc_id: "{{ vpc_id }}"
+        region: "{{ region }}"
+        state: present
+        tags:
+          Name: MY_IGW
+      register: igw_result
+
+    - name: "Set Internet gateway id in variable"
+      set_fact:
+        igw_id: "{{ igw_result.gateway_id }}"
+
+    - name: "Creating NAT gateway"
+      ec2_vpc_nat_gateway:
+        state: present
+        subnet_id: "{{ public_subnet_az1_id }}"
+        wait: yes
+        region: "{{ region }}"
+        if_exist_do_not_create: true
+      register: nat_gw_result
+
+    - name: "Set NAT gateway id in variable"
+      set_fact:
+        nat_gw_id: "{{ nat_gw_result.nat_gateway_id }}"
+
+    - name: "Creating public subnet RT with igw"
+      ec2_vpc_route_table:
+        vpc_id: "{{ vpc_id }}"
+        region: "{{ region }}"
+        tags:
+          Name: public_RT
+        subnets:
+          - "{{ public_subnet_az1_id }}"
+          - "{{ public_subnet_az2_id }}"
+        routes:
+          - dest: 0.0.0.0/0
+            gateway_id: "{{ igw_id }}"
+      register: public_rt_result
+
+
+    - name: "Creating private subnet RT with NAT"
+      ec2_vpc_route_table:
+        vpc_id: "{{ vpc_id }}"
+        region: "{{ region }}"
+        tags:
+          Name: private_RT
+        subnets: "{{ private_subnet_az3_id }}"
+        routes:
+          - dest: 0.0.0.0/0
+            gateway_id: "{{ nat_gw_id }}"
+      register: private_rt_result
+
+
     - name: "Create Amazon linux EC2 instance - Bastion"
       ec2:
         key_name: "{{ key_name }}"
@@ -185,10 +239,64 @@
         instance_tags:
           Name: "bastion_server"
         exact_count: 1
-      register: ec2_result
+      register: bastion_result
 
     - name: "Set ec2 instance id in variable"
       set_fact:
-        ec2_id: "{{ ec2_result.tagged_instances[0].id }}"
+        ec2_id: "{{ bastion_result.tagged_instances[0].id }}"
+
+
+    - name: "Create Amazon linux EC2 instance - webserver"
+      ec2:
+        key_name: "{{ key_name }}"
+        instance_type: "{{ instance_type }}"
+        image: "{{ image }}"
+        region: "{{ region }}"
+        zone: "{{ region }}b"
+        vpc_subnet_id: "{{ public_subnet_az2_id }}"
+        group: webserver_sg
+        assign_public_ip: yes
+        volumes:
+          - device_name: /dev/xvda
+            volume_type: gp2
+            volume_size: 8
+        wait: yes
+        count_tag:
+          Name: "webserver_server"
+        instance_tags:
+          Name: "webserver_server"
+        exact_count: 1
+      register: webserver_result
+
+    - name: "Set ec2 instance id in variable"
+      set_fact:
+        ec2_id: "{{ webserver_result.tagged_instances[0].id }}"
+
+    - name: "Create Amazon linux EC2 instance - DBserver"
+      ec2:
+        key_name: "{{ key_name }}"
+        instance_type: "{{ instance_type }}"
+        image: "{{ image }}"
+        region: "{{ region }}"
+        zone: "{{ region }}c"
+        vpc_subnet_id: "{{ private_subnet_az3_id }}"
+        group: DBserver_sg
+        assign_public_ip: no
+        volumes:
+          - device_name: /dev/xvda
+            volume_type: gp2
+            volume_size: 8
+        wait: yes
+        count_tag:
+          Name: "DBserver"
+        instance_tags:
+          Name: "DBserver"
+        exact_count: 1
+      register: DBserver_result
+
+    - name: "Set ec2 instance id in variable"
+      set_fact:
+        ec2_id: "{{ DBserver_result.tagged_instances[0].id }}"
+
 
 
