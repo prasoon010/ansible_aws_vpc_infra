@@ -38,12 +38,14 @@
         state: present
       register: vpc_result
 
+    - name: Wait for 10 Seconds
+      wait_for:
+        timeout: 10
+
     - name: "Set vpc id in variable"
       set_fact:
         vpc_id: "{{ vpc_result.vpc.id }}"
 
-    # - name: Wait for 5 Seconds
-    #   wait_for: timeout=5
 
     - name: "Creating public subnet for bastion server [AZ-1]"
       ec2_vpc_subnet:
@@ -136,7 +138,7 @@
             cidr_ip: 0.0.0.0/0
       register: webserver_sg
 
-    - name: "Set bastion security group id in variable"
+    - name: "Set webserver security group id in variable"
       set_fact:
         webserver_sg_id: "{{ webserver_sg.group_id }}"
 
@@ -243,7 +245,7 @@
 
     - name: "Set ec2 instance id in variable"
       set_fact:
-        ec2_id: "{{ bastion_result.tagged_instances[0].id }}"
+        bastion_ec2_id: "{{ bastion_result.tagged_instances[0].id }}"
 
 
     - name: "Create Amazon linux EC2 instance - webserver"
@@ -270,7 +272,7 @@
 
     - name: "Set ec2 instance id in variable"
       set_fact:
-        ec2_id: "{{ webserver_result.tagged_instances[0].id }}"
+        webserver_ec2_id: "{{ webserver_result.tagged_instances[0].id }}"
 
     - name: "Create Amazon linux EC2 instance - DBserver"
       ec2:
@@ -296,7 +298,7 @@
 
     - name: "Set ec2 instance id in variable"
       set_fact:
-        ec2_id: "{{ DBserver_result.tagged_instances[0].id }}"
+        dbserver_ec2_id: "{{ DBserver_result.tagged_instances[0].id }}"
 
 
 
